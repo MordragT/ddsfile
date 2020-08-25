@@ -34,17 +34,17 @@ mod error;
 pub use error::*;
 
 mod format;
-pub use format::{DxgiFormat, D3DFormat, DataFormat, PixelFormat, PixelFormatFlags, FourCC};
+pub use format::{D3DFormat, DataFormat, DxgiFormat, FourCC, PixelFormat, PixelFormatFlags};
 
 mod header;
-pub use header::{Header, HeaderFlags, Caps, Caps2};
+pub use header::{Caps, Caps2, Header, HeaderFlags};
 
 mod header10;
-pub use header10::{Header10, D3D10ResourceDimension, MiscFlag, AlphaMode};
+pub use header10::{AlphaMode, D3D10ResourceDimension, Header10, MiscFlag};
 
-use std::io::{Read, Write};
-use std::fmt;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use std::fmt;
+use std::io::{Read, Write};
 
 /// This is the main DirectDraw Surface file structure
 pub struct Dds {
@@ -58,13 +58,21 @@ impl Dds {
     const MAGIC: u32 = 0x20534444; // b"DDS " in little endian
 
     /// Create a new DirectDraw Surface with a D3DFormat
-    pub fn new_d3d(height: u32, width: u32, depth: Option<u32>, format: D3DFormat,
-                   mipmap_levels: Option<u32>, caps2: Option<Caps2>) -> Result<Dds, Error>
-    {
-        let size = match get_texture_size(format.get_pitch(width), None,
-                                          format.get_pitch_height(),
-                                          height, depth)
-        {
+    pub fn new_d3d(
+        height: u32,
+        width: u32,
+        depth: Option<u32>,
+        format: D3DFormat,
+        mipmap_levels: Option<u32>,
+        caps2: Option<Caps2>,
+    ) -> Result<Dds, Error> {
+        let size = match get_texture_size(
+            format.get_pitch(width),
+            None,
+            format.get_pitch_height(),
+            height,
+            depth,
+        ) {
             Some(s) => s,
             None => return Err(Error::UnsupportedFormat),
         };
@@ -79,31 +87,37 @@ impl Dds {
         let data_size = array_stride;
 
         Ok(Dds {
-            header: Header::new_d3d(height, width, depth, format, mipmap_levels,
-                                    caps2)?,
+            header: Header::new_d3d(height, width, depth, format, mipmap_levels, caps2)?,
             header10: None,
             data: vec![0; data_size as usize],
         })
     }
 
     /// Create a new DirectDraw Surface with a DxgiFormat
-    pub fn new_dxgi(height: u32, width: u32, depth: Option<u32>,
-                    format: DxgiFormat,
-                    mipmap_levels: Option<u32>, array_layers: Option<u32>,
-                    caps2: Option<Caps2>, is_cubemap: bool,
-                    resource_dimension: D3D10ResourceDimension,
-                    alpha_mode: AlphaMode)
-                    -> Result<Dds, Error>
-    {
+    pub fn new_dxgi(
+        height: u32,
+        width: u32,
+        depth: Option<u32>,
+        format: DxgiFormat,
+        mipmap_levels: Option<u32>,
+        array_layers: Option<u32>,
+        caps2: Option<Caps2>,
+        is_cubemap: bool,
+        resource_dimension: D3D10ResourceDimension,
+        alpha_mode: AlphaMode,
+    ) -> Result<Dds, Error> {
         let arraysize = match array_layers {
             Some(s) => s,
             None => 1,
         };
 
-        let size = match get_texture_size(format.get_pitch(width), None,
-                                          format.get_pitch_height(),
-                                          height, depth)
-        {
+        let size = match get_texture_size(
+            format.get_pitch(width),
+            None,
+            format.get_pitch_height(),
+            height,
+            depth,
+        ) {
             Some(s) => s,
             None => return Err(Error::UnsupportedFormat),
         };
@@ -118,12 +132,23 @@ impl Dds {
         let data_size = arraysize * array_stride;
 
         let header10 = Header10::new(
-            format, is_cubemap, resource_dimension,
-            arraysize, alpha_mode);
+            format,
+            is_cubemap,
+            resource_dimension,
+            arraysize,
+            alpha_mode,
+        );
 
         Ok(Dds {
-            header: Header::new_dxgi(height, width, depth, format, mipmap_levels,
-                                     array_layers, caps2)?,
+            header: Header::new_dxgi(
+                height,
+                width,
+                depth,
+                format,
+                mipmap_levels,
+                array_layers,
+                caps2,
+            )?,
             header10: Some(header10),
             data: vec![0; data_size as usize],
         })
@@ -149,7 +174,7 @@ impl Dds {
         Ok(Dds {
             header: header,
             header10: header10,
-            data: data
+            data: data,
         })
     }
 
@@ -165,8 +190,7 @@ impl Dds {
     }
 
     /// Attempt to get the format of this DDS, presuming it is a D3DFormat.
-    pub fn get_d3d_format(&self) -> Option<D3DFormat>
-    {
+    pub fn get_d3d_format(&self) -> Option<D3DFormat> {
         // FIXME: some d3d formats are equivalent to some dxgi formats.
         //    but we dont have a try_from() between them yet.
         //    Right now we will yield None if the format is dxgi, but
@@ -176,8 +200,7 @@ impl Dds {
     }
 
     /// Attempt to get the format of this DDS, presuming it is a DxgiFormat.
-    pub fn get_dxgi_format(&self) -> Option<DxgiFormat>
-    {
+    pub fn get_dxgi_format(&self) -> Option<DxgiFormat> {
         // FIXME: some d3d formats are equivalent to some dxgi formats.
         //    but we dont have a try_from() between them yet.
         //    Right now we will yield None if the format is d3d, but
@@ -190,8 +213,7 @@ impl Dds {
     }
 
     /// Get the format of the DDS as a trait (type-erasure)
-    pub fn get_format(&self) -> Option<Box<dyn DataFormat>>
-    {
+    pub fn get_format(&self) -> Option<Box<dyn DataFormat>> {
         if let Some(dxgi) = self.get_dxgi_format() {
             Some(Box::new(dxgi))
         } else if let Some(d3d) = self.get_d3d_format() {
@@ -241,7 +263,7 @@ impl Dds {
 
         // Then try to calculate it ourselves
         if let Some(bpp) = self.get_bits_per_pixel() {
-            return Some((bpp * self.get_width() + 7) / 8)
+            return Some((bpp * self.get_width() + 7) / 8);
         }
         None
     }
@@ -256,13 +278,15 @@ impl Dds {
 
     pub fn get_main_texture_size(&self) -> Option<u32> {
         get_texture_size(
-            self.get_pitch(), self.header.linear_size,
+            self.get_pitch(),
+            self.header.linear_size,
             self.get_pitch_height(),
-            self.header.height, self.header.depth)
+            self.header.height,
+            self.header.depth,
+        )
     }
 
-    pub fn get_array_stride(&self) -> Result<u32, Error>
-    {
+    pub fn get_array_stride(&self) -> Result<u32, Error> {
         let size = match self.get_main_texture_size() {
             Some(s) => s,
             None => return Err(Error::UnsupportedFormat),
@@ -303,30 +327,27 @@ impl Dds {
 
     /// This gets a reference to the data at the given `array_layer` (which should be
     /// 0 for textures with just one image).
-    pub fn get_data<'a>(&'a self, array_layer: u32)
-                        -> Result<&'a[u8], Error>
-    {
-        let (offset,size) = self.get_offset_and_size(array_layer)?;
+    pub fn get_data<'a>(&'a self, array_layer: u32) -> Result<&'a [u8], Error> {
+        let (offset, size) = self.get_offset_and_size(array_layer)?;
         let offset = offset as usize;
         let size = size as usize;
-        self.data.get(offset .. offset+size).ok_or(
-            Error::OutOfBounds)
+        self.data
+            .get(offset..offset + size)
+            .ok_or(Error::OutOfBounds)
     }
 
     /// This gets a reference to the data at the given `array_layer` (which should be
     /// 0 for textures with just one image).
-    pub fn get_mut_data<'a>(&'a mut self, array_layer: u32)
-                            -> Result<&'a mut [u8], Error>
-    {
-        let (offset,size) = self.get_offset_and_size(array_layer)?;
+    pub fn get_mut_data<'a>(&'a mut self, array_layer: u32) -> Result<&'a mut [u8], Error> {
+        let (offset, size) = self.get_offset_and_size(array_layer)?;
         let offset = offset as usize;
         let size = size as usize;
-        self.data.get_mut(offset .. offset+size).ok_or(
-            Error::OutOfBounds)
+        self.data
+            .get_mut(offset..offset + size)
+            .ok_or(Error::OutOfBounds)
     }
 
-    fn get_offset_and_size(&self, array_layer: u32) -> Result<(u32, u32), Error>
-    {
+    pub fn get_offset_and_size(&self, array_layer: u32) -> Result<(u32, u32), Error> {
         // Verify request bounds
         if array_layer >= self.get_num_array_layers() {
             return Err(Error::OutOfBounds);
@@ -338,29 +359,26 @@ impl Dds {
     }
 }
 
-fn get_texture_size(pitch: Option<u32>, linear_size: Option<u32>, pitch_height: u32,
-                    height: u32, depth: Option<u32>)
-                    -> Option<u32>
-{
+fn get_texture_size(
+    pitch: Option<u32>,
+    linear_size: Option<u32>,
+    pitch_height: u32,
+    height: u32,
+    depth: Option<u32>,
+) -> Option<u32> {
     let depth = depth.unwrap_or(1);
 
     if let Some(ls) = linear_size {
         Some(ls)
-    }
-    else if let Some(pitch) = pitch {
-        let row_height = (height + (pitch_height-1))/ pitch_height;
+    } else if let Some(pitch) = pitch {
+        let row_height = (height + (pitch_height - 1)) / pitch_height;
         Some(pitch * row_height * depth)
-    }
-    else {
+    } else {
         None
     }
 }
 
-fn get_array_stride(texture_size: u32,
-                    min_mipmap_size: u32,
-                    mipmap_levels: u32)
-                    -> u32
-{
+fn get_array_stride(texture_size: u32, min_mipmap_size: u32, mipmap_levels: u32) -> u32 {
     let mut stride: u32 = 0;
     let mut current_mipsize: u32 = texture_size;
     for _ in 0..mipmap_levels {
