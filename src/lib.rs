@@ -350,10 +350,19 @@ impl Dds {
         let (offset, size) = self.get_offset_and_size(array_layer)?;
         let offset = offset as usize;
         let size = size as usize;
+        if self.data.len() < offset + size {
+            self.data.resize(offset + size, 0);
+        }
         let mut new_data_index = 0;
-        self.data.resize(offset + size, 0);
         for i in offset..offset + size {
-            self.data[i] = data[new_data_index];
+            let val = match data.get(new_data_index) {
+                Some(v) => v,
+                None => break,
+            };
+            match self.data.get_mut(i) {
+                Some(b) => *b = *val,
+                None => return Err(Error::OutOfBounds),
+            }
             new_data_index += 1;
         }
         Ok(())
