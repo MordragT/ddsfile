@@ -346,8 +346,33 @@ impl Dds {
             .get_mut(offset..offset + size)
             .ok_or(Error::OutOfBounds)
     }
+    pub fn set_data<'a>(&'a mut self, array_layer: u32, data: Vec<u8>) -> Result<(), Error> {
+        let (offset, size) = self.get_offset_and_size(array_layer)?;
+        let offset = offset as usize;
+        let size = size as usize;
+        let mut new_data_index = 0;
+        for i in offset..offset + size {
+            self.data[i] = data[new_data_index];
+            new_data_index += 1;
+        }
+        Ok(())
+    }
+    // fn calculate_offset_and_size(
+    //     &self,
+    //     array_layer: u32,
+    //     mipmap_levels: u32,
+    // ) -> Result<(u32, u32), Error> {
+    //     let size = match self.get_main_texture_size() {
+    //         Some(s) => s,
+    //         None => return Err(Error::UnsupportedFormat),
+    //     };
+    //     let min_mipmap_size = self.get_min_mipmap_size_in_bytes();
+    //     let array_stride = get_array_stride(size, min_mipmap_size, mipmap_levels);
+    //     let offset = array_layer * array_stride;
 
-    pub fn get_offset_and_size(&self, array_layer: u32) -> Result<(u32, u32), Error> {
+    //     Ok((offset, array_stride))
+    // }
+    fn get_offset_and_size(&self, array_layer: u32) -> Result<(u32, u32), Error> {
         // Verify request bounds
         if array_layer >= self.get_num_array_layers() {
             return Err(Error::OutOfBounds);
