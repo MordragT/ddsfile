@@ -351,6 +351,7 @@ impl Dds {
         let offset = offset as usize;
         let size = size as usize;
         let mut new_data_index = 0;
+        self.data.resize(offset + size, 0);
         for i in offset..offset + size {
             self.data[i] = data[new_data_index];
             new_data_index += 1;
