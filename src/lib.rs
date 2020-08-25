@@ -352,7 +352,7 @@ impl Dds {
         data: Vec<u8>,
         mipmap_levels: u32,
     ) -> Result<(), Error> {
-        let (offset, size) = self.calculate_offset_and_size(array_layer, mipmap_levels)?;
+        let (offset, size) = self.get_offset_and_size(array_layer)?;
         let offset = offset as usize;
         let size = size as usize;
         if self.data.len() < offset + size {
